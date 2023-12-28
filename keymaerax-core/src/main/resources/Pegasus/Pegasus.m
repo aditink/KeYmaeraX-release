@@ -12,6 +12,9 @@ Needs["DiffSaturation`",FileNameJoin[{Directory[],"Strategies","DiffSaturation.m
 Needs["DiffDivConquer`",FileNameJoin[{Directory[],"Strategies","DiffDivConquer.m"}]] (* Diff Sat *)
 Needs["Helper`",FileNameJoin[{Directory[],"Strategies","Helper.m"}]] (* Diff Sat *)
 Needs["Format`",FileNameJoin[{Directory[],"Strategies","Format.m"}]] (* Formatting *)
+(* CESAR *)
+Needs["FirstIntegrals`",FileNameJoin[{Directory[],"Primitives","FirstIntegrals.m"}]] (* First Integrals *)
+Needs["Darboux`",FileNameJoin[{Directory[],"Primitives","Darboux.m"}]] (* Formatting *)
 
 
 BeginPackage["Pegasus`"];
@@ -129,6 +132,24 @@ If[TrueQ[OptionValue[InvGen,UseDDC]],
 	DiffSaturation`DiffSat[eprob, class]]
 ]]
 
+(* For CESAR *)
+FirstIntegrals[prob_List, opts:OptionsPattern[]]:=Catch[Module[
+{pre,f,vars,evoConst,post,
+preImpliesPost,postInvariant,preInvariant,preDomFalse,domImpPost,class,constvars,constQ,eprob,
+ERRSTR},
+{prob, options} = prob_List;
+{vfe, varse, Q, deg} = prob;
+FirstIntegrals`FindFirstIntegrals[{vfe,varse,Q},deg]
+]]
+
+Darboux[prob_List, opts:OptionsPattern[]]:=Catch[Module[
+{pre,f,vars,evoConst,post,
+preImpliesPost,postInvariant,preInvariant,preDomFalse,domImpPost,class,constvars,constQ,eprob},
+ClearAll["Global`*"];
+{prob, options} = prob_List;
+{vfe, varse, Q, deg} = prob;
+DarbouxPolynomials`DbxNaive[{vfe,varse,Q},deg]
+]]
 
 End[]
 EndPackage[]

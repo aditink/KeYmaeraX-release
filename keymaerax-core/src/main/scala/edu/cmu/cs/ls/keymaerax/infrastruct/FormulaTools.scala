@@ -30,6 +30,13 @@ object FormulaTools extends Logging {
   /** @see conjuncts(formula: Formula) */
   def conjuncts(formulas: List[Formula]): List[Formula] = formulas.flatMap(conjuncts)
 
+  /** Return the conjunction of the given list of formulas. */
+  def conjunctionOfList(formulas: List[Formula]): Formula = formulas match {
+    case Nil => True
+    case f :: Nil => f
+    case f :: fs => And(f, conjunctionOfList(fs))
+  }
+
   /**
    * Split a formula into its disjuncts.
    * Without performing clause form or CNF or DNF transformations.

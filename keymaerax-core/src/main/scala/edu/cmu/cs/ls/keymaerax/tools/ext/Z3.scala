@@ -81,6 +81,15 @@ final class Z3 extends Tool with QETacticTool with SimplificationTool with ToolO
     parser = (s: String) => SmtLibReader.readTerm(s)
   )
 
+  def check(fml: Formula): Unit = {
+    val (varDec, smt) = DefaultSMTConverter.generateSMT(fml)
+    val smtCode = varDec + "(check-sat " + smt + ")"
+    // To show model:
+    //    val smtCode = varDec + "(check-sat " + smt + ")(get-model)"
+    val z3Output = z3.runZ3Smt(smtCode, "z3check", getOperationTimeout)
+    println(z3Output)
+  }
+
   /** Simplifies expression `expr` accounting for `assumptions`, parses the result using `parser`. */
   private def simplify[T<:Expression](expr: T, assumptions: List[Formula], parser: String=>T): T = {
     val (varDec, smt) = DefaultSMTConverter.generateSMT(expr)

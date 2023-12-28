@@ -93,6 +93,9 @@ object SmtLibReader {
     case FunctionApplication(QualifiedIdentifier(Identifier(SSymbol("equiv"), Nil), None), terms) =>
       assert(terms.size == 2, "Equiv expected between exactly 2 formulas")
       Equiv(convertFormula(terms(0)), convertFormula(terms(1)))
+    case FunctionApplication(QualifiedIdentifier(Identifier(SSymbol("distinct"), Nil), None), terms) =>
+      assert(terms.size == 2, "Distinct expected exactly 2 formulas")
+      Not(Equal(convertTerm(terms(0)), convertTerm(terms(1))))
     // unary and n-ary operators
     case FunctionApplication(QualifiedIdentifier(Identifier(SSymbol(op), Nil), None), terms) =>
       assert(terms.nonEmpty, "Unary/n-ary and expects at least 1 argument")

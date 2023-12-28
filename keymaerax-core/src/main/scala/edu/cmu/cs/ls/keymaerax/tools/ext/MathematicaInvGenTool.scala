@@ -1,18 +1,17 @@
 package edu.cmu.cs.ls.keymaerax.tools.ext
 
 import com.wolfram.jlink.Expr
-import edu.cmu.cs.ls.keymaerax.{Configuration, Logging}
-import edu.cmu.cs.ls.keymaerax.bellerophon.TacticInapplicableFailure
 import edu.cmu.cs.ls.keymaerax.btactics.InvGenTool
 import edu.cmu.cs.ls.keymaerax.btactics.helpers.DifferentialHelper
 import edu.cmu.cs.ls.keymaerax.core._
 import edu.cmu.cs.ls.keymaerax.infrastruct.Augmentors._
 import edu.cmu.cs.ls.keymaerax.infrastruct.FormulaTools
-import edu.cmu.cs.ls.keymaerax.tools.qe.MathematicaOpSpec._
-import edu.cmu.cs.ls.keymaerax.tools.ext.ExtMathematicaOpSpec._
 import edu.cmu.cs.ls.keymaerax.tools.ConversionException
+import edu.cmu.cs.ls.keymaerax.tools.ext.ExtMathematicaOpSpec._
 import edu.cmu.cs.ls.keymaerax.tools.install.PegasusInstaller
+import edu.cmu.cs.ls.keymaerax.tools.qe.MathematicaOpSpec._
 import edu.cmu.cs.ls.keymaerax.tools.qe.{BinaryMathOpSpec, NaryMathOpSpec, UnaryMathOpSpec}
+import edu.cmu.cs.ls.keymaerax.{Configuration, Logging}
 
 import scala.collection.immutable.Seq
 
@@ -42,6 +41,69 @@ class MathematicaInvGenTool(override val link: MathematicaLink)
   private val pegasusRelativePath = PegasusInstaller.pegasusRelativeResourcePath
   private val joinedPath = fileNameJoin(list(Configuration.sanitizedPathSegments(Configuration.KEYMAERAX_HOME_PATH, pegasusRelativePath).map(string):_*))
   private val setPathsCmd = compoundExpression(setDirectory(joinedPath), appendTo(path.op, joinedPath))
+
+  def darboux(ode: DifferentialProgram, domain: Formula, order: Int): List[Term] = {
+    cesarCommand(ode, domain, order, "Darboux")
+  }
+
+  def firstIntegrals(ode: DifferentialProgram, domain: Formula, order: Int): List[Term] = {
+    cesarCommand(ode, domain, order, "FirstIntegrals")
+  }
+
+  private def cesarCommand(ode: DifferentialProgram, domain: Formula, order: Int, operation: String): List[Term] = {
+
+    timeout = -1 // reap must be outermost, so do not set tool timeout (which is automatically translated to timeconstrained), but instead use commandTimeout in timeConstrained below
+    val commandTimeout = Configuration.Pegasus.invGenTimeout(-1)
+
+    val primedVars = DifferentialHelper.getPrimedVariables(ode)
+    val atomicODEs = DifferentialHelper.atomicOdes(ode)
+
+    val vars = list(primedVars.map(k2m): _*)
+    val vectorField = list(atomicODEs.map(o => k2m(o.e)): _*)
+    val mDomain = k2m(domain)
+    val mOrder = k2m(Number(order))
+    val problem = list(vectorField, vars, mDomain, mOrder)
+    logger.debug("Raw Mathematica input into Pegasus: " + problem)
+
+    val reap = UnaryMathOpSpec(symbol("Reap"))
+    val timeConstrained = BinaryMathOpSpec(symbol("TimeConstrained"))
+    val set = BinaryMathOpSpec(symbol("Set"))
+    val mIf = NaryMathOpSpec(symbol("If"))
+    val part = BinaryMathOpSpec(symbol("Part"))
+    val failureQ = UnaryMathOpSpec(symbol("FailureQ"))
+    val length = UnaryMathOpSpec(symbol("Length"))
+    val trueQ = UnaryMathOpSpec(symbol("TrueQ"))
+
+    val pegasusMain = Configuration.Pegasus.mainFile("Pegasus.m")
+    //@note quiet suppresses messages, since translated into Exception in command runner
+    val command = quiet(compoundExpression(
+      setPathsCmd,
+      needs(string(PEGASUS_NAMESPACE), string(pegasusMain)),
+      // without intermediate result extraction: applyFunc(psymbol("InvGen"))(problem)
+      compoundExpression(
+        set(
+          symbol("reaped"),
+          reap(timeConstrained(applyFunc(psymbol(operation))(problem), int(commandTimeout))))
+      ),
+      mIf(
+        trueQ(and(failureQ(part(symbol("reaped"), int(1))), greater(length(part(symbol("reaped"), int(2))), int(0)))),
+        part(part(part(symbol("reaped"), int(2)), int(1)), int(-1)),
+        part(symbol("reaped"), int(1))
+      )
+    )
+    )
+
+    try {
+      val (output, result) = run(command)
+      logger.debug("Generated invariant: " + result.prettyString + " from raw output " + output)
+      val invariants = PegasusM2KConverter.extractResultTerms(result)
+      invariants
+    } catch {
+      case ex: Throwable =>
+        logger.warn("Pegasus invariant generator exception", ex)
+        Nil
+    }
+  }
 
   /** @inheritdoc */
   override def invgen(ode: ODESystem, assumptions: Seq[Formula], postCond: Formula): Seq[Either[Seq[(Formula, String)], Seq[(Formula, String)]]] = {

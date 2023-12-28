@@ -64,6 +64,15 @@ case class QuantifiedMathOpSpec(op: Expr) extends MathematicaOpSpec {
   override def applies(e: Expr): Boolean = e.head == op
 }
 
+/** Quantifier Math operators. */
+case class QuantifiedConditionedMathOpSpec(op: Expr) extends MathematicaOpSpec {
+  /** Creates a Mathematica expression with quantified variables `vars` and formula `q`. */
+  def apply(vars: Array[Expr], cond:Expr, q: Expr): Expr =
+    makeExpr(op, Array[Expr](MathematicaOpSpec.list(vars:_*), cond, q))
+  /** @inheritdoc */
+  override def applies(e: Expr): Boolean = e.head == op
+}
+
 /** [[NamedSymbol]] operators, with `k2m` converter {{{(name, args) => Expr}}}. */
 case class NameMathOpSpec(k2m: (NamedSymbol, Array[Expr]) => Expr, applies: Expr => Boolean) {
   def apply(ns: NamedSymbol, args: Array[Expr]): Expr = k2m(ns, args)
@@ -114,6 +123,8 @@ object MathematicaOpSpec {
   //</editor-fold>
 
   //<editor-fold desc="Terms">
+
+  def conjugate: UnaryMathOpSpec = UnaryMathOpSpec(symbol("Conjugate"))
 
   def neg: UnaryMathOpSpec = UnaryMathOpSpec(symbol("Minus"))
 
@@ -197,6 +208,8 @@ object MathematicaOpSpec {
 
   def not: UnaryMathOpSpec = UnaryMathOpSpec(symbol("Not"))
 
+  def root: UnaryMathOpSpec = UnaryMathOpSpec(symbol("Root"))
+
   def and: NaryMathOpSpec = NaryMathOpSpec(symbol("And"))
 
   def or: NaryMathOpSpec = NaryMathOpSpec(symbol("Or"))
@@ -210,6 +223,10 @@ object MathematicaOpSpec {
   def forall: QuantifiedMathOpSpec = QuantifiedMathOpSpec(symbol("ForAll"))
 
   def exists: QuantifiedMathOpSpec = QuantifiedMathOpSpec(symbol("Exists"))
+
+  def forallAssuming: QuantifiedConditionedMathOpSpec = QuantifiedConditionedMathOpSpec(symbol("ForAll"))
+
+  def existsAssuming: QuantifiedConditionedMathOpSpec = QuantifiedConditionedMathOpSpec(symbol("Exists"))
 
   //</editor-fold>
 
@@ -264,6 +281,14 @@ object MathematicaOpSpec {
   def timeConstrained: BinaryMathOpSpec = BinaryMathOpSpec(symbol("TimeConstrained"))
 
   def memoryConstrained: BinaryMathOpSpec = BinaryMathOpSpec(symbol("MemoryConstrained"))
+
+  //</editor-fold>
+
+  //<editor-fold desc="Optimization">
+
+  def maximize: NaryMathOpSpec = NaryMathOpSpec(symbol("Maximize"))
+
+  def minimize: NaryMathOpSpec = NaryMathOpSpec(symbol("Minimize"))
 
   //</editor-fold>
 }

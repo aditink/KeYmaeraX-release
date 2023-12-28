@@ -53,6 +53,7 @@ class Mathematica(private[tools] val link: MathematicaLink, override val name: S
   private val mAlgebra = new MathematicaAlgebraTool(link)
   private val mSimplify = new MathematicaSimplificationTool(link)
   private val mLyapunov = new MathematicaLyapunovSolverTool(link)
+  private val mResolve = new MathematicaResolveTool(link)
 
   private val qeInitialTimeout = Integer.parseInt(Configuration(Configuration.Keys.QE_TIMEOUT_INITIAL))
   private val qeCexTimeout = Integer.parseInt(Configuration(Configuration.Keys.QE_TIMEOUT_CEX))
@@ -72,6 +73,7 @@ class Mathematica(private[tools] val link: MathematicaLink, override val name: S
     mAlgebra.memoryLimit = memoryLimit
     mSimplify.memoryLimit = memoryLimit
     mLyapunov.memoryLimit = memoryLimit
+    mResolve.memoryLimit = memoryLimit
 
     // initialze tool thread pools
     mQE.init()
@@ -85,6 +87,7 @@ class Mathematica(private[tools] val link: MathematicaLink, override val name: S
     mSimplify.init()
     mSOSsolve.init()
     mLyapunov.init()
+    mResolve.init()
 
     initialized = link match {
       case l: JLinkMathematicaLink =>
@@ -117,6 +120,7 @@ class Mathematica(private[tools] val link: MathematicaLink, override val name: S
     mAlgebra.shutdown()
     mSimplify.shutdown()
     mLyapunov.shutdown()
+    mResolve.shutdown()
     //@note last, because we want to shut down all executors (tool threads) before shutting down the JLink interface
     link match {
       case l: JLinkMathematicaLink => l.shutdown()
@@ -247,6 +251,55 @@ class Mathematica(private[tools] val link: MathematicaLink, override val name: S
   }
 
 
+  /** Returns the result of the first expression to succeed among the list queries.
+   * When one succeeds, terminates the others. */
+  private def firstResponse(queries: List[MExpr]): Formula = {
+    val ids = ListBuffer.empty[MExpr]
+    val input = module(
+      list(
+        set(symbol("res"), list(int(-1), bool(false))),
+        set(symbol("eids"), list(queries.map({ q =>
+          ids.append(q)
+          parallelSubmit(list(int(ids.size - 1), q))
+        }): _*))
+      ),
+      compoundExpr(
+        set(list(symbol("res"), symbol("id"), symbol("eids")), waitNext(symbol("eids"))),
+        abortKernels(),
+        closeKernels(),
+        symbol("res")
+      )
+    )
+    try {
+      val (_, result) = mQE.qeTool.link.run(input, new UncheckedBaseM2KConverter {
+        override def convert(e: MExpr): KExpr = {
+          if (e.listQ()) {
+            val (i, fml) = e.args.toList match {
+              case i :: fml :: Nil => convert(i).asInstanceOf[Term] -> convert(fml).asInstanceOf[Formula]
+              case e => throw ConversionException("Expected QE result list of length 2 {i,fml}, but got " + e.mkString(","))
+            }
+            And(Equal(INDEX, i), Equiv(RESULT, fml))
+          }
+          else super.convert(e)
+        }
+      })
+      result match {
+        case And(Equal(INDEX, Number(i)), Equiv(RESULT, fml)) => fml
+        case _ => throw ConversionException("Expected a formula result but got a non-formula expression: " + result.prettyString)
+      }
+    }
+  }
+
+  def firstResultForall(v: Variable, varOrders: List[List[Variable]], c: Formula, p: Formula, s: List[Formula] = List()): Formula = {
+    val queries = varOrders.map(mResolve.resolveForallOrderedExpr(v, _, c, p, s))
+    firstResponse(queries)
+  }
+
+  def firstResultExists(v: Variable, varOrders: List[List[Variable]], c: Formula, p: Formula): Formula = {
+    val queries = varOrders.map(mResolve.resolveExistsOrderedExpr(v, _, c, p))
+    firstResponse(queries)
+  }
+
   /** Transforms the leaves in goal `g` according to transformation `trafo`. */
   private def applyTo(g: Goal, trafo: Formula => Formula): Goal = g match {
     case Atom(goal) => Atom(trafo(goal))
@@ -342,7 +395,15 @@ class Mathematica(private[tools] val link: MathematicaLink, override val name: S
   override def sosSolve(polynomials: List[Term], variables: List[Term], degree: Int, timeout: Option[Int]): Result = mSOSsolve.sosSolve(polynomials, variables, degree, timeout)
   override def genCLF(sys: List[ODESystem]): Option[Term] = mLyapunov.genCLF(sys)
   override def genMLF(sys: List[ODESystem], trans: List[(Int, Int, Formula)]): List[Term] = mLyapunov.genMLF(sys, trans)
-
+  def resolve(f: Formula): Formula = mResolve.resolve(f)
+  def resolveForall(v: Variable, c: Formula, p: Formula): Formula = mResolve.resolveForall(v, c, p)
+  def firstIntegral(differentialProgram: DifferentialProgram, domain: Formula, order: Int): List[Term] = mPegasus.firstIntegrals(differentialProgram, domain, order)
+  def darboux(differentialProgram: DifferentialProgram, domain: Formula, order: Int): List[Term] = mPegasus.darboux(differentialProgram, domain, order)
+  def resolveForallOrdered(v: Variable, varOrder: List[Variable], c: Formula, p: Formula): Formula = mResolve.resolveForallOrdered(v, varOrder, c, p)
+  def resolveExists(v: Variable, c: Formula, p: Formula): Formula = mResolve.resolveExists(v, c, p)
+  def resolveExistsOrdered(v: Variable, varOrder: List[Variable], c: Formula, p: Formula): Formula = mResolve.resolveExistsOrdered(v, varOrder, c, p)
+  def reduce(p: Formula): Formula = mResolve.reduce(p)
+  def maximize(t: Term, c: Formula, v: Variable): Term = mResolve.maximize(t, c, v)
 
   /** Restarts the MathKernel with the current configuration */
   override def restart(): Unit = link match {

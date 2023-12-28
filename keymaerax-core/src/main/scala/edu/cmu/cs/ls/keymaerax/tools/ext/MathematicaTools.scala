@@ -5,21 +5,20 @@
 
 package edu.cmu.cs.ls.keymaerax.tools.ext
 
-import edu.cmu.cs.ls.keymaerax.{Configuration, Logging}
 import edu.cmu.cs.ls.keymaerax.btactics.helpers.DifferentialHelper
 import edu.cmu.cs.ls.keymaerax.core.{Variable, _}
 import edu.cmu.cs.ls.keymaerax.infrastruct.ExpressionTraversal.{ExpressionTraversalFunction, StopTraversal}
 import edu.cmu.cs.ls.keymaerax.infrastruct.{ExpressionTraversal, FormulaTools, PosInExpr}
-import edu.cmu.cs.ls.keymaerax.tools.qe.MathematicaConversion.{KExpr, _}
-import edu.cmu.cs.ls.keymaerax.tools.ext.SimulationTool.{SimRun, SimState, Simulation}
-import edu.cmu.cs.ls.keymaerax.tools.qe.{BinaryMathOpSpec, ExprFactory, K2MConverter, KeYmaeraToMathematica, M2KConverter, MathematicaNameConversion, MathematicaOpSpec, MathematicaToKeYmaera, NaryMathOpSpec, UnaryMathOpSpec}
-import edu.cmu.cs.ls.keymaerax.tools.qe.MathematicaOpSpec._
 import edu.cmu.cs.ls.keymaerax.tools._
-import edu.cmu.cs.ls.keymaerax.tools.ext.ExtMathematicaOpSpec.{appendTo, applyFunc, compoundExpression, fileNameJoin, homeDirectory, needs, path, quiet, setDirectory}
+import edu.cmu.cs.ls.keymaerax.tools.ext.ExtMathematicaOpSpec._
+import edu.cmu.cs.ls.keymaerax.tools.ext.SimulationTool.{SimRun, SimState, Simulation}
 import edu.cmu.cs.ls.keymaerax.tools.install.PegasusInstaller
+import edu.cmu.cs.ls.keymaerax.tools.qe.MathematicaConversion._
+import edu.cmu.cs.ls.keymaerax.tools.qe.MathematicaOpSpec._
+import edu.cmu.cs.ls.keymaerax.tools.qe._
+import edu.cmu.cs.ls.keymaerax.{Configuration, Logging}
 
 import scala.collection.immutable
-import scala.math.BigDecimal
 
 object UncheckedBaseConverter {
   val CONST_FN_SUFFIX = "cnstfn"
@@ -484,6 +483,14 @@ object PegasusM2KConverter extends UncheckedBaseM2KConverter with Logging {
   }
 
   /** Extracts the list of (invariant,hint) and a proved/candidate indicator from the Pegasus result formula
+   *
+   * @see [[convertDiffSatResult]], [[convertTrivialResult]]
+   */
+  def extractResultTerms(result: Expression): List[Term] = {
+    decodeTermList(result)
+  }
+
+  /** Extracts the list of (invariant,hint) and a proved/candidate indicator from the Pegasus result formula
     * @see [[convertDiffSatResult]], [[convertTrivialResult]]
     */
   def extractResult(result: Expression): (immutable.Seq[(Formula, String)], Formula) = {
@@ -944,6 +951,148 @@ class MathematicaSimplificationTool(override val link: MathematicaLink) extends 
         case r: Expression => r
         case _ => throw ToolExecutionException("Mathematica did not successfuly simplify: " + expr + " under assumptions " + assumptions)
       }
+  }
+}
+
+/**
+ * Mathematica Resolve call.
+ */
+class MathematicaResolveTool(override val link: MathematicaLink) extends BaseKeYmaeraMathematicaBridge[KExpr](link, new UncheckedBaseK2MConverter, new UncheckedBaseM2KConverter) {
+
+  def resolve(expr: Formula): Formula = {
+    val ex = k2m(expr)
+    val input = MathematicaOpSpec.resolve(ex, reals.op)
+    val (_, result) = run(input)
+    result match {
+      case r: Formula => r
+      case _ => throw ToolExecutionException("Mathematica did not successfuly resolve: " + expr)
+    }
+  }
+
+  def resolveForall(eliminate: Variable, assumption: Formula, predicate: Formula): Formula = {
+    val mEliminate = k2m(eliminate)
+    val mAssumption = k2m(assumption)
+    val mPredicate = k2m(predicate)
+    // Create a Mathematica forall expression.
+    val forall = MathematicaOpSpec.forallAssuming(Array(mEliminate), mAssumption, mPredicate)
+    val input = MathematicaOpSpec.reduce(forall, list(), reals.op)
+    val (_, result) = run(input)
+    result match {
+      case r: Formula => r
+      case _ => throw ToolExecutionException("Mathematica did not successfuly resolve: " + predicate + " assuming " + assumption)
+    }
+  }
+
+  def resolveForallOrdered(eliminate: Variable, varOrder: List[Variable], assumption: Formula, predicate: Formula): Formula = {
+    val mEliminate = k2m(eliminate)
+    val mAssumption = k2m(assumption)
+    val mPredicate = k2m(predicate)
+    // Create a Mathematica forall expression.
+    val forall = MathematicaOpSpec.forallAssuming(Array(mEliminate), mAssumption, mPredicate)
+    val varList = varOrder.map(k2m)
+    val mVarList = MathematicaOpSpec.list(varList:_*)
+    val input = MathematicaOpSpec.reduce(forall, mVarList, reals.op)
+    val (_, result) = run(input)
+    result match {
+      case r: Formula => r
+      case _ => throw ToolExecutionException("Mathematica did not successfuly resolve: " + predicate + " assuming " + assumption)
+    }
+  }
+
+  def resolveForallOrderedExpr(eliminate: Variable, varOrder: List[Variable], assumption: Formula, predicate: Formula, simplificationAssumptions: List[Formula] = List()): MExpr = {
+    val mEliminate = k2m(eliminate)
+    val mAssumption = k2m(assumption)
+    val mPredicate = k2m(predicate)
+    // Create a Mathematica forall expression.
+    val forall = MathematicaOpSpec.forallAssuming(Array(mEliminate), mAssumption, mPredicate)
+    val varList = varOrder.map(k2m)
+    val mVarList = MathematicaOpSpec.list(varList:_*)
+    val reduced = MathematicaOpSpec.reduce(forall, mVarList, reals.op)
+    if (simplificationAssumptions.nonEmpty) {
+      val assuming = simplificationAssumptions.map(k2m)
+      ExtMathematicaOpSpec.fullSimplify(reduced, MathematicaOpSpec.list(assuming:_*))
+    }
+    else {
+      reduced
+    }
+  }
+
+  //  def resolveForallOrderedExpr(eliminate: Variable, varOrder: List[Variable], assumption: Formula, predicate: Formula, simplificationAssumptions: List[Formula]) = {
+  //    val mEliminate = k2m(eliminate)
+  //    val mAssumption = k2m(assumption)
+  //    val mPredicate = k2m(predicate)
+  //    // Create a Mathematica forall expression.
+  //    val forall = MathematicaOpSpec.forallAssuming(Array(mEliminate), mAssumption, mPredicate)
+  //    val varList = varOrder.map(k2m)
+  //    val mVarList = MathematicaOpSpec.list(varList:_*)
+  //    val reduced = MathematicaOpSpec.reduce(forall, mVarList, reals.op)
+  //    val assuming = simplificationAssumptions.map(k2m)
+  //    ExtMathematicaOpSpec.fullSimplify(reduced, MathematicaOpSpec.list(assuming:_*))
+  //  }
+
+  def reduce(fml: Formula): Formula = {
+    val mFormula = k2m(fml)
+    // Sometimes reduce is overly conservative.
+    val input = MathematicaOpSpec.reduce(mFormula, list(), reals.op)
+    val (_, result) = run(input)
+    result match {
+      case r: Formula => r
+      case _ => throw ToolExecutionException("Mathematica did not successfuly reduce: " + fml)
+    }
+  }
+
+  def resolveExists(eliminate: Variable, assumption: Formula, predicate: Formula): Formula = {
+    val mEliminate = k2m(eliminate)
+    val mAssumption = k2m(assumption)
+    val mPredicate = k2m(predicate)
+    // Create a Mathematica exists expression.
+    val exists = MathematicaOpSpec.existsAssuming(Array(mEliminate), mAssumption, mPredicate)
+    val input = MathematicaOpSpec.resolve(exists, reals.op)
+    // val input = MathematicaOpSpec.reduce(resolveInput, list(), reals.op)
+    val (_, result) = run(input)
+    result match {
+      case r: Formula => r
+      case _ => throw ToolExecutionException("Mathematica did not successfuly resolve: " + predicate + " assuming " + assumption)
+    }
+  }
+
+  def resolveExistsOrdered(eliminate: Variable, varOrder: List[Variable], assumption: Formula, predicate: Formula): Formula = {
+    val mEliminate = k2m(eliminate)
+    val mAssumption = k2m(assumption)
+    val mPredicate = k2m(predicate)
+    // Create a Mathematica exists expression.
+    val exists = MathematicaOpSpec.existsAssuming(Array(mEliminate), mAssumption, mPredicate)
+    val varList = varOrder.map(k2m)
+    val mVarList = MathematicaOpSpec.list(varList:_*)
+    val input = MathematicaOpSpec.reduce(exists, mVarList, reals.op)
+    val (_, result) = run(input)
+    result match {
+      case r: Formula => r
+      case _ => throw ToolExecutionException("Mathematica did not successfuly resolve: " + predicate + " assuming " + assumption)
+    }
+  }
+
+  def resolveExistsOrderedExpr(eliminate: Variable, varOrder: List[Variable], assumption: Formula, predicate: Formula): MExpr = {
+    val mEliminate = k2m(eliminate)
+    val mAssumption = k2m(assumption)
+    val mPredicate = k2m(predicate)
+    // Create a Mathematica exists expression.
+    val exists = MathematicaOpSpec.existsAssuming(Array(mEliminate), mAssumption, mPredicate)
+    val varList = varOrder.map(k2m)
+    val mVarList = MathematicaOpSpec.list(varList:_*)
+    MathematicaOpSpec.reduce(exists, mVarList, reals.op)
+  }
+
+  def maximize(what: Term, constr: Formula, elim: Variable): Term = {
+    val mWhat = k2m(what)
+    val mConstr = k2m(constr)
+    val mElim = k2m(elim)
+    val input = MathematicaOpSpec.maximize(list(mWhat, mConstr), mElim)
+    val (_, result) = run(input)
+    result match {
+      case r: Term => r
+      case _ => throw ToolExecutionException("Mathematica did not successfuly maximize: " + what + " under " + constr)
+    }
   }
 }
 
