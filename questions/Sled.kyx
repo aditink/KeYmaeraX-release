@@ -1,0 +1,26 @@
+﻿/* Compatible with KeYmaera X v5.0 */
+
+Theorem "Tacas/sled"
+
+Definitions
+Real Tx;
+Real Ty;
+Real V;
+Real T;
+End.
+
+ProgramVariables
+Real vx;
+Real x;
+Real y;
+Real t;
+End.
+
+Problem
+  Tx>0 & Ty>0 & V>0 & T>0 ->
+      [{{{ vx:=-V;} 
+      ++ { vx:=V;}}^@;
+      t:=0; {x'=vx, y'=V, t'=1 & t<=T}}*](y<Ty | x<(-Tx) | Tx<x)
+End.
+
+End.

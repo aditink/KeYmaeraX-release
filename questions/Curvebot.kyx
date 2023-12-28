@@ -1,0 +1,27 @@
+﻿/* Compatible with KeYmaera X v5.0 */
+
+Theorem "Tacas/curvebot"
+
+Definitions
+Real T;
+End.
+
+ProgramVariables
+Real x;
+Real y;
+Real w;
+Real v;
+Real om;
+End.
+
+Problem
+  T>0 ->
+    [{{
+        { om:=0; } 
+        ++ { om:=1; } 
+        ++ { om:=-1; }}^@;
+    t:=0; {x'=v,y'=w,v'=om*w,w'=-om*v, t'=1 & t<=T}}*
+    ]!(x=0 & y=0)
+End.
+
+End.

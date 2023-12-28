@@ -1,0 +1,25 @@
+﻿/* Compatible with KeYmaera X v5.0 */
+
+Theorem "Tacas/intersection"
+
+Definitions
+Real B;
+Real T;
+End.
+
+ProgramVariables
+Real a;
+Real v;
+Real x;
+Real timeToRed;
+End.
+
+Problem
+    B>0 & T>0 & v>=0 ->
+    [{ {{a:=-B;}
+    ++ {a:=0;}}^@;
+    {t:=0; {x'=v, v'=a, timeToRed'=-1, t'=1 & t<=T & v>=0}
+    }}*] ((timeToRed>0 & !(v=0)) | !(x=0))
+End.
+
+End.

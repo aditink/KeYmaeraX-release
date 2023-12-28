@@ -1,0 +1,28 @@
+﻿/* Compatible with KeYmaera X v5.0 */
+
+Theorem "Tacas/Corridor"
+
+Definitions
+Real T;
+Real R;
+Real v;
+End.
+
+ProgramVariables
+Real vy;
+Real vx;
+Real x;
+Real y;
+Real t;
+End.
+
+
+Problem
+  v>0 & T>0 & R>0 ->
+    [{{{vx:=0;vy:=-v;}
+    ++{vy:=0;vx:=-v;}}^@;
+    t:=0; {x'=vx,y'=vy,t'=1 & t<=T}}*]((x>-3*R & -R<y & y<R) | (y<R & -R<x & x<R))
+
+End.
+
+End.

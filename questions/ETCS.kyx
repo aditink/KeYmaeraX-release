@@ -1,0 +1,27 @@
+﻿/* Compatible with KeYmaera X v5.0 */
+
+Theorem "Tacas/ETCS"
+
+Definitions
+Real A;
+Real B;
+Real T;
+Real end;
+End.
+
+ProgramVariables
+Real a;
+Real p;
+Real v;
+Real t;
+End.
+
+Problem
+  A>0 & B>0 & T>0 & v>=0 -> 
+      [{{{a:=A;} 
+      ++ {a:=-B;}}^@;
+      t:=0;{p'=v,v'=a,t'=1 & t<=T & v>=0}}*
+      ](end-p>0)
+End.
+
+End.

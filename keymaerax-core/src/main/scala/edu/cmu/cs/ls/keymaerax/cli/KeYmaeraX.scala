@@ -36,7 +36,8 @@ object KeYmaeraX {
     val REPL: String = "repl"
     val SETUP: String = "setup"
     val CONVERT: String = "convert"
-    val modes: Set[String] = Set(CODEGEN, CONVERT, GRADE, MODELPLEX, PROVE, REPL, SETUP)
+    val SYNTHESIZE: String = "synthesize"
+    val modes: Set[String] = Set(CODEGEN, CONVERT, GRADE, MODELPLEX, PROVE, REPL, SETUP, SYNTHESIZE)
   }
 
   object Conversions {
@@ -87,6 +88,11 @@ object KeYmaeraX {
       case Some(Modes.CONVERT) =>
         initializeProver(combineConfigs(options, configFromFile("z3")), usage)
         convert(options, usage)
+      case Some(Modes.SYNTHESIZE) =>
+        val mathematicaConfig = ToolConfiguration.config("mathematica").map({ case (k, v) => Symbol(k) -> v })
+        initializeProver(combineConfigs(options, mathematicaConfig), usage)
+        CesarCli.synthesize(options, usage)
+        println("...done")
       case command => println("WARNING: Unknown command " + command)
     }
   }
@@ -154,6 +160,13 @@ object KeYmaeraX {
       case "-prove" :: value :: tail =>
         if (value.nonEmpty && !value.startsWith("-")) nextOption(options ++ Map('mode -> Modes.PROVE, 'in -> value), tail, usage)
         else { Usage.optionErrorReporter("-prove", usage); exit(1) }
+      case "-synthesize" :: value :: outValue :: bound :: tail =>
+        if (value.nonEmpty && !value.startsWith("-")) nextOption(options ++ Map('mode -> Modes.SYNTHESIZE, 'in -> value,
+          'out -> outValue, 'bound -> bound), tail, usage)
+        else {
+          Usage.optionErrorReporter("-synthesize", usage);
+          exit(1)
+        }
       case "-grade" :: value :: tail =>
         if (value.nonEmpty && !value.startsWith("-")) nextOption(options ++ Map('mode -> Modes.GRADE, 'in -> value), tail, usage)
         else { Usage.optionErrorReporter("-grade", usage); exit(1) }
