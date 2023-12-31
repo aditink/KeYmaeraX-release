@@ -89,7 +89,7 @@ object KeYmaeraX {
         initializeProver(combineConfigs(options, configFromFile("z3")), usage)
         convert(options, usage)
       case Some(Modes.SYNTHESIZE) =>
-        val mathematicaConfig = ToolConfiguration.config("mathematica").map({ case (k, v) => Symbol(k) -> v })
+        val mathematicaConfig = ToolConfiguration.config("wolframengine").map({ case (k, v) => Symbol(k) -> v })
         initializeProver(combineConfigs(options, mathematicaConfig), usage)
         CesarCli.synthesize(options, usage)
         println("...done")
