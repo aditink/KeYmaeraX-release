@@ -51,7 +51,11 @@ object PostfixPrinter {
       case Power(l, r) => "(^ " + print(l) + " " + print(r) + ")"
       case Neg(t) => "(- " + print(t) + ")"
       // In the case of a number, avoid extra parens.
-      case Number(n) => n.toString
+      case Number(n) =>
+        // Also handle negative numbers specially so that extra optimizations apply.
+        if (n<0) {
+          "(- " + (-n).toString + ")"
+        } else n.toString
       // Assume all instances of FuncOf are nullary (second parameter is unit).
       case FuncOf(f, _) => f.name
       case _ => trm.toString
@@ -327,6 +331,11 @@ class MathTool(tool: Mathematica, orderedVars: List[Variable], debug: Boolean = 
   def eggSimplify(expr: Formula, assumptions: Formula, arg: String = "-a"): Formula = {
     val assumptionsString = PostfixPrinter.print(assumptions)
     val exprString = PostfixPrinter.print(expr)
+
+    if(debug) {
+      println("Egg question: "+exprString)
+      println("Egg assumptions: "+assumptionsString)
+    }
 
     val result = Seq("./simplify", arg, exprString, assumptionsString).!!
 
