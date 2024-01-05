@@ -322,7 +322,7 @@ class ODESolvingException(message: String) extends Exception(message) {
  * @param eggChunkSize If the expression has more characters than this, during simplification we attempt ot break it down before handing over to egg simplify.
  * @param maxSimplify If the expression has more characters than this, try to break down before passing to Mathematica simplification.
  */
-class MathTool(tool: Mathematica, orderedVars: List[Variable], debug: Boolean = true, qeChunkSize: Int = 500, eggChunkSize: Int = 1500, maxSimplify: Int = 150000)
+class MathTool(tool: Mathematica, orderedVars: List[Variable], debug: Boolean = true, qeChunkSize: Int = 500, eggChunkSize: Int = 8000, maxSimplify: Int = 150000)
 {
   var allowSimplify: Boolean = false
   var allowEgg: Boolean = false
@@ -1174,6 +1174,8 @@ class Cesar(tool: Mathematica, inputArg: Formula, debug: Boolean = false, eagerS
       mathTool.setAllowSimplify(true)
       mathTool.setAllowEgg(true)
       invariant = mathTool.simplifyOracle(invariant, List(template.init))
+      guards = guards.map(g => mathTool.simplifyOracle(g, List(invariant,template.init)))
+      // Repeat for further simplification.
       guards = guards.map(g => mathTool.simplifyOracle(g, List(invariant,template.init)))
     }
     invariant :: guards
