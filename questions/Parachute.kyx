@@ -17,11 +17,16 @@ Real t;
 End.
 
 Problem
-        T>0 & p>0 & g>0 & r>0 & m>0 & v>0 ->
-        [{{?1=1;
-         ++ {r:=p;}}^@;
-        t:=0; {x'=-v, v'=-r*v^2+g, t'=1 & v>0 & t<=T}}*
-        ](x<0 | v<m)
+  T>0 & p>0 & g>0 & r>0 & m>0 & v>0
+  /* & __invariant-hole__ */ ->
+  [{
+    {
+      { /* ?__guard-hole-1__; */ ?1=1;}
+      ++
+      { /* ?__guard-hole-2__; */ r:=p;}
+    }^@;
+    t:=0; {x'=-v, v'=-r*v^2+g, t'=1 & v>0 & t<=T}}*
+  ](x<0 | v<m)
 End.
 
 End.

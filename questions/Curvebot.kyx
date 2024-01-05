@@ -15,13 +15,18 @@ Real om;
 End.
 
 Problem
-  T>0 ->
-    [{{
-        { om:=0; } 
-        ++ { om:=1; } 
-        ++ { om:=-1; }}^@;
-    t:=0; {x'=v,y'=w,v'=om*w,w'=-om*v, t'=1 & t<=T}}*
-    ]!(x=0 & y=0)
+  T>0
+  /* & __invariant-hole__ */ ->
+  [{
+    {
+      { /* ?__guard-hole-1__; */ om:=0; }
+      ++
+      { /* ?__guard-hole-2__; */ om:=1; }
+      ++
+      { /* ?__guard-hole-3__; */ om:=-1; }
+    }^@;
+  t:=0; {x'=v,y'=w,v'=om*w,w'=-om*v, t'=1 & t<=T}}*
+  ]!(x=0 & y=0)
 End.
 
 End.

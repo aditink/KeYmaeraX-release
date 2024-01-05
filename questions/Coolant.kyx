@@ -21,11 +21,16 @@ End.
 
 
 Problem
-  T>0 & F>0 & minAbsorbed>0 & maxDischarge>0 & tempDiff>0 & c>0 ->
-    [{ {{ f:=0; }
-    ++  { f:=F; }}^@;
+  T>0 & F>0 & minAbsorbed>0 & maxDischarge>0 & tempDiff>0 & c>0 
+  /* & __invariant-hole__ */ ->
+  [{
+    {
+      { /* ?__guard-hole-1__; */ f:=0; }
+      ++
+      { /* ?__guard-hole-2__; */ f:=F; }
+    }^@;
     t:=0; {absorbed' = f*c*tempDiff, discharged'=f, t'=1, gt'=-1 & t<=T}
-    }*] (discharged<maxDischarge & (gt>0 | absorbed>= minAbsorbed))
+  }*] (discharged<maxDischarge & (gt>0 | absorbed>= minAbsorbed))
 End.
 
 End.

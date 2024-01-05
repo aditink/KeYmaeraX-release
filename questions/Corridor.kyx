@@ -18,11 +18,16 @@ End.
 
 
 Problem
-  v>0 & T>0 & R>0 ->
-    [{{{vx:=0;vy:=-v;}
-    ++{vy:=0;vx:=-v;}}^@;
-    t:=0; {x'=vx,y'=vy,t'=1 & t<=T}}*]((x>-3*R & -R<y & y<R) | (y<R & -R<x & x<R))
-
+  v>0 & T>0 & R>0
+  /* & __invariant-hole__ */ ->
+  [{
+    {
+      { /* ?__guard-hole-1__; */ vy:=0;vx:=-v;}
+      ++
+      { /* ?__guard-hole-2__; */ vx:=0;vy:=v;}
+    }^@;
+    t:=0; {x'=vx,y'=vy,t'=1 & t<=T}}*
+  ]((x>-3*R & -R<y & y<R) | (y>-R & -R<x & x<R))
 End.
 
 End.

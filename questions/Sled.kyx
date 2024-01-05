@@ -17,10 +17,16 @@ Real t;
 End.
 
 Problem
-  Tx>0 & Ty>0 & V>0 & T>0 ->
-      [{{{ vx:=-V;} 
-      ++ { vx:=V;}}^@;
-      t:=0; {x'=vx, y'=V, t'=1 & t<=T}}*](y<Ty | x<(-Tx) | Tx<x)
+  Tx>0 & Ty>0 & V>0 & T>0
+  /* & __invariant-hole__ */ ->
+  [{
+    {
+      { /* ?__guard-hole-1__; */ vx:=-V;}
+      ++
+      { /* ?__guard-hole-2__; */ vx:=V;}
+    }^@;
+    t:=0; {x'=vx, y'=V, t'=1 & t<=T}}*
+  ](y<Ty | x<(-Tx) | Tx<x)
 End.
 
 End.

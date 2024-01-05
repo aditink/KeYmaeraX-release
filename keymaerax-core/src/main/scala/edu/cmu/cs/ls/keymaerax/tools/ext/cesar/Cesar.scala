@@ -3,7 +3,7 @@ package edu.cmu.cs.ls.keymaerax.tools.ext.ceasar
 import edu.cmu.cs.ls.keymaerax.bellerophon.BelleExpr
 import edu.cmu.cs.ls.keymaerax.btactics.TacticHelper.freshNamedSymbol
 import edu.cmu.cs.ls.keymaerax.btactics.TactixLibrary.{autoClose, loop, unfoldProgramNormalize}
-import edu.cmu.cs.ls.keymaerax.core.{And, Assign, AssignAny, Box, Choice, Compose, Diamond, DifferentialProgram, DifferentialSymbol, Divide, Dual, Equal, Exists, False, Forall, Formula, FuncOf, Greater, GreaterEqual, Imply, Less, LessEqual, Loop, Minus, Neg, Not, NotEqual, Nothing, Number, ODESystem, Or, Plus, Power, PredOf, PredicationalOf, Program, Sequent, StaticSemantics, Term, Test, Times, True, UnitPredicational, Variable}
+import edu.cmu.cs.ls.keymaerax.core.{And, Assign, AssignAny, AtomicODE, Box, Choice, Compose, Diamond, DifferentialProduct, DifferentialProgram, DifferentialSymbol, Divide, Dual, Equal, Exists, False, Forall, Formula, FuncOf, Greater, GreaterEqual, Imply, Less, LessEqual, Loop, Minus, Neg, Not, NotEqual, Nothing, Number, ODESystem, Or, Plus, Power, PredOf, PredicationalOf, Program, Sequent, StaticSemantics, Term, Test, Times, True, UnitPredicational, Variable}
 import edu.cmu.cs.ls.keymaerax.infrastruct.DependencyAnalysis.{analyseModal, scc}
 import edu.cmu.cs.ls.keymaerax.infrastruct.{FormulaTools, SubstitutionHelper}
 import edu.cmu.cs.ls.keymaerax.parser.StringConverter.StringToStringConverter
@@ -98,6 +98,13 @@ object defuncHelper {
     }
   }
 
+  private def deFuncDifferentialProg(program: DifferentialProgram): DifferentialProgram = {
+    program match {
+      case AtomicODE(xprime, e) => AtomicODE(xprime, deFuncTerm(e))
+      case DifferentialProduct(p1, p2) => DifferentialProduct(deFuncDifferentialProg(p1), deFuncDifferentialProg(p2))
+    }
+  }
+
   private def deFuncProg(program: Program): Program = {
     program match {
       case Compose(a, b) => Compose(deFuncProg(a), deFuncProg(b))
@@ -106,7 +113,7 @@ object defuncHelper {
       case Assign(x, v) => Assign(x, deFuncTerm(v))
       case Test(f) => Test(deFunc(f))
       case Loop(p) => Loop(deFuncProg(p))
-      case ODESystem(ode, domain) => ODESystem(ode, deFunc(domain))
+      case ODESystem(ode, domain) => ODESystem(deFuncDifferentialProg(ode), deFunc(domain))
       case _ => program
     }
   }
