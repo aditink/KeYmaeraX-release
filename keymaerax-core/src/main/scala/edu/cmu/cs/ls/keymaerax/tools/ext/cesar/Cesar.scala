@@ -257,8 +257,9 @@ case class Template(
         case Choice(l, r) =>
           if (!dual) recExtractDemonic(l, suffix, dual) ++ recExtractDemonic(r, suffix, dual)
           else
-            {recExtractDemonic(l, suffix, dual)} ++ {recExtractDemonic(r, suffix, dual)} ++
-              (if (!isChoice(l)) {(l, Compose(Dual(l), suffix)) :: Nil} else Nil) ++
+            (if (!isChoice(l)) {(l, Compose(Dual(l), suffix)) :: Nil} else Nil) ++
+              {recExtractDemonic(l, suffix, dual)} ++
+              {recExtractDemonic(r, suffix, dual)} ++
               (if (!isChoice(r)) {(r, Compose(Dual(r), suffix)) :: Nil} else Nil)
         case AssignAny(_) => if (!dual) Nil else (prog, suffix) :: Nil
         case Dual(p) => recExtractDemonic(p, suffix, !dual)
