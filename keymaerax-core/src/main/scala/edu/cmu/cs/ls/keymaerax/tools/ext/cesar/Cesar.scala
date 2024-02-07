@@ -322,8 +322,10 @@ class ODESolvingException(message: String) extends Exception(message) {
  * @param qeChunkSize If the expression has more characters than this, we attempt ot break it down before handing over to mathematica for forall QE.
  * @param eggChunkSize If the expression has more characters than this, during simplification we attempt ot break it down before handing over to egg simplify.
  * @param maxSimplify If the expression has more characters than this, try to break down before passing to Mathematica simplification.
+ * @param ablationNoSimplify If true then override everything and do not permit simplification.
  */
-class MathTool(tool: Mathematica, orderedVars: List[Variable], debug: Boolean = true, qeChunkSize: Int = 500, eggChunkSize: Int = 8000, maxSimplify: Int = 150000)
+class MathTool(tool: Mathematica, orderedVars: List[Variable], debug: Boolean = true, qeChunkSize: Int = 500, eggChunkSize: Int = 8000, maxSimplify: Int = 150000,
+               ablationNoSimplify: Boolean = false)
 {
   var allowSimplify: Boolean = false
   var allowEgg: Boolean = false
@@ -337,6 +339,10 @@ class MathTool(tool: Mathematica, orderedVars: List[Variable], debug: Boolean = 
   }
 
   def eggSimplify(expr: Formula, assumptions: Formula, arg: String = "-a"): Formula = {
+    if (ablationNoSimplify) {
+      return expr
+    }
+
     val assumptionsString = PostfixPrinter.print(assumptions)
     val exprString = PostfixPrinter.print(expr)
 
@@ -359,7 +365,7 @@ class MathTool(tool: Mathematica, orderedVars: List[Variable], debug: Boolean = 
 
   /** Light simplification to cleanup a formula with 0s before handing to Mathematica. */
   def eggCleanup(expr: Formula, assumptions: Formula): Formula = {
-    if (!allowSimplify) {
+    if (!allowSimplify || ablationNoSimplify) {
       return expr
     }
     val assumptionsString = PostfixPrinter.print(assumptions)
@@ -498,7 +504,7 @@ class MathTool(tool: Mathematica, orderedVars: List[Variable], debug: Boolean = 
 
   /** Does arithmetic simplification. */
   def simplifyOracle(expr: Formula, assumption: List[Formula]): Formula = {
-    if (!allowSimplify) {
+    if (!allowSimplify || ablationNoSimplify) {
       return expr
     }
     if (debug) {
@@ -648,10 +654,11 @@ class MathTool(tool: Mathematica, orderedVars: List[Variable], debug: Boolean = 
  * @param n Number of unfoldings.
  * @param orderedVars Use variable ordering in reduce calls.
  * @param allowEgg Enable simplification using egg. Even if false, egg cleanup and rewrite will still run.
+ * @param ablationNoSimplify If true then override everything and disable all simplify. For ablation tests.
  * @param unfoldBased use reduceDl implementation based on unfold, with no simplification.
  */
 class Cesar(tool: Mathematica, inputArg: Formula, debug: Boolean = false, eagerSimplify: Boolean = true, n: Int =0,
-            orderedVars:Boolean = true, allowEgg: Boolean = true, allowSimplify: Boolean = false,
+            orderedVars:Boolean = true, allowEgg: Boolean = true, allowSimplify: Boolean = false, ablationNoSimplify: Boolean = false,
             enableDeferredQe: Boolean = true, unfoldBased: Boolean = false) {
 
   def inputFml: Formula = defuncHelper.deFunc(inputArg)
@@ -664,7 +671,7 @@ class Cesar(tool: Mathematica, inputArg: Formula, debug: Boolean = false, eagerS
     inputFml.orderedVarList
   } else {
     List()
-  }, debug = debug)
+  }, debug = debug, ablationNoSimplify = ablationNoSimplify)
 
   // By default mathTool does not allow simplification.
   if (allowSimplify) {
